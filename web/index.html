@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>日历记事本</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  background: #f0e8e3;
+  display: flex;
+  justify-content: center;
+  padding: 40px 20px;
+  min-height: 100vh;
+}
+.container {
+  width: 100%;
+  max-width: 1000px;
+  background: #fdf7f4;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(118,108,101,0.1);
+  padding: 24px;
+  height: fit-content;
+}
+
+/* Header */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.header-left h1 {
+  font-size: 22px;
+  font-weight: 600;
+  color: #5a4e48;
+  min-width: 140px;
+  text-align: center;
+}
+.nav-btn {
+  background: none;
+  border: 1px solid #e5dfd9;
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 16px;
+  color: #766c65;
+  transition: all .15s;
+}
+.nav-btn:hover { background: #f0e6df; border-color: #d8cfca; }
+.today-btn {
+  background: #c75b49;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 16px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background .15s;
+}
+.today-btn:hover { background: #b04a3a; }
+
+/* Weekday header */
+.weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-weight: 600;
+  color: #8c7e76;
+  font-size: 13px;
+  padding: 8px 0;
+  border-bottom: 1px solid #ede5df;
+}
+
+/* Calendar grid */
+.calendar {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+.day-cell {
+  min-height: 100px;
+  border-bottom: 1px solid #ede5df;
+  border-right: 1px solid #ede5df;
+  padding: 4px 6px;
+  cursor: pointer;
+  transition: background .1s;
+  position: relative;
+}
+.day-cell:nth-child(7n) { border-right: none; }
+.day-cell:hover { background: #f6eee8; }
+.day-cell.other-month { background: #faf5f1; }
+.day-cell.other-month .day-number { color: #d8cfca; }
+.day-cell.today { background: #f5e6e2; }
+.day-cell.today .day-number {
+  background: #c75b49;
+  color: #fff;
+  border-radius: 50%;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.day-number {
+  font-size: 13px;
+  font-weight: 500;
+  color: #5a4e48;
+  margin-bottom: 2px;
+}
+.note-text {
+  font-size: 11px;
+  color: #766c65;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 1px;
+}
+.note-more {
+  font-size: 10px;
+  color: #b5a89e;
+  margin-top: 1px;
+}
+
+/* Modal */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(118,108,101,0.35);
+  z-index: 100;
+  justify-content: center;
+  align-items: center;
+}
+.modal-overlay.active { display: flex; }
+.modal {
+  background: #fdf7f4;
+  border-radius: 10px;
+  padding: 24px;
+  width: 360px;
+  max-width: 90vw;
+  box-shadow: 0 8px 30px rgba(118,108,101,0.15);
+}
+.modal h2 {
+  font-size: 16px;
+  margin-bottom: 12px;
+  color: #5a4e48;
+}
+.modal textarea {
+  width: 100%;
+  height: 180px;
+  border: 1px solid #e5dfd9;
+  border-radius: 6px;
+  padding: 10px;
+  font-size: 14px;
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.6;
+  background: #fff;
+}
+.modal textarea:focus { outline: none; border-color: #c75b49; }
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+.modal-actions button {
+  padding: 6px 16px;
+  border-radius: 6px;
+  border: 1px solid #e5dfd9;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all .15s;
+}
+.btn-cancel { background: #fff; color: #766c65; }
+.btn-cancel:hover { background: #f6eee8; }
+.btn-save { background: #c75b49; color: #fff; border-color: #c75b49 !important; }
+.btn-save:hover { background: #b04a3a; }
+
+.empty-hint {
+  color: #d8cfca;
+  font-size: 12px;
+  text-align: center;
+  margin-top: 8px;
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="header-left">
+      <button class="nav-btn" id="prevBtn">◀</button>
+      <h1 id="title"></h1>
+      <button class="nav-btn" id="nextBtn">▶</button>
+    </div>
+    <button class="today-btn" id="todayBtn">今天</button>
+  </div>
+  <div class="weekdays">
+    <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
+  </div>
+  <div class="calendar" id="calendar"></div>
+</div>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h2 id="modalTitle">2026-05-10 记事</h2>
+    <textarea id="modalText" placeholder="每行一条记事&#10;例如：&#10;下午3点开会&#10;买牛奶"></textarea>
+    <div class="modal-actions">
+      <button class="btn-cancel" id="cancelBtn">取消</button>
+      <button class="btn-save" id="saveBtn">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const NOTES_KEY = 'calendar_notes';
+let notes = {};
+let currentYear, currentMonth;
+let editingDate = null;
+
+function loadNotes() {
+  try {
+    const raw = localStorage.getItem(NOTES_KEY);
+    notes = raw ? JSON.parse(raw) : {};
+  } catch { notes = {}; }
+}
+
+function saveNotes() {
+  localStorage.setItem(NOTES_KEY, JSON.stringify(notes));
+}
+
+function getNotesForDate(dateStr) {
+  return notes[dateStr] || [];
+}
+
+function setNotesForDate(dateStr, lines) {
+  const filtered = lines.map(l => l.trim()).filter(l => l);
+  if (filtered.length) notes[dateStr] = filtered;
+  else delete notes[dateStr];
+  saveNotes();
+}
+
+function renderCalendar() {
+  const cal = document.getElementById('calendar');
+  const title = document.getElementById('title');
+  cal.innerHTML = '';
+
+  title.textContent = `${currentYear}年${currentMonth + 1}月`;
+
+  const firstDay = new Date(currentYear, currentMonth, 1);
+  // 0=Sun, 1=Mon ... 6=Sat → we want Mon first: adjust so Mon=0
+  let startDayOfWeek = firstDay.getDay() - 1; // Mon=0
+  if (startDayOfWeek < 0) startDayOfWeek = 6; // Sun=6
+
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const daysInPrevMonth = new Date(currentYear, currentMonth, 0).getDate();
+
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+
+  // Prev month cells
+  for (let i = startDayOfWeek - 1; i >= 0; i--) {
+    const d = daysInPrevMonth - i;
+    const m = currentMonth === 0 ? 11 : currentMonth - 1;
+    const y = currentMonth === 0 ? currentYear - 1 : currentYear;
+    cal.appendChild(createDayCell(y, m, d, true));
+  }
+
+  // Current month cells
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isToday = dateStr === todayStr;
+    cal.appendChild(createDayCell(currentYear, currentMonth, d, false, isToday));
+  }
+
+  // Next month cells to fill grid
+  const totalCells = cal.children.length;
+  const remaining = (7 - totalCells % 7) % 7;
+  for (let d = 1; d <= remaining; d++) {
+    const m = currentMonth === 11 ? 0 : currentMonth + 1;
+    const y = currentMonth === 11 ? currentYear + 1 : currentYear;
+    cal.appendChild(createDayCell(y, m, d, true));
+  }
+}
+
+function createDayCell(year, month, day, otherMonth, isToday) {
+  const div = document.createElement('div');
+  div.className = 'day-cell' + (otherMonth ? ' other-month' : '') + (isToday ? ' today' : '');
+
+  const num = document.createElement('div');
+  num.className = 'day-number';
+  num.textContent = day;
+  div.appendChild(num);
+
+  if (!otherMonth) {
+    const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    const dayNotes = getNotesForDate(dateStr);
+    const maxShow = 3;
+    const show = dayNotes.slice(0, maxShow);
+    for (const n of show) {
+      const el = document.createElement('div');
+      el.className = 'note-text';
+      el.textContent = n;
+      div.appendChild(el);
+    }
+    if (dayNotes.length > maxShow) {
+      const el = document.createElement('div');
+      el.className = 'note-more';
+      el.textContent = `+${dayNotes.length - maxShow}`;
+      div.appendChild(el);
+    }
+    if (dayNotes.length === 0 && !isToday) {
+      const hint = document.createElement('div');
+      hint.className = 'empty-hint';
+      hint.textContent = '+';
+      div.appendChild(hint);
+    }
+
+    div.addEventListener('click', () => openEditor(dateStr));
+  }
+
+  return div;
+}
+
+function openEditor(dateStr) {
+  editingDate = dateStr;
+  document.getElementById('modalTitle').textContent = `${dateStr} 记事`;
+  const lines = getNotesForDate(dateStr);
+  document.getElementById('modalText').value = lines.join('\n');
+  document.getElementById('modal').classList.add('active');
+  document.getElementById('modalText').focus();
+}
+
+function closeEditor() {
+  document.getElementById('modal').classList.remove('active');
+  editingDate = null;
+}
+
+function saveEditor() {
+  if (!editingDate) return;
+  const text = document.getElementById('modalText').value;
+  const lines = text.split('\n');
+  setNotesForDate(editingDate, lines);
+  closeEditor();
+  renderCalendar();
+}
+
+// Event listeners
+document.getElementById('prevBtn').addEventListener('click', () => {
+  currentMonth--;
+  if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+  renderCalendar();
+});
+document.getElementById('nextBtn').addEventListener('click', () => {
+  currentMonth++;
+  if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+  renderCalendar();
+});
+document.getElementById('todayBtn').addEventListener('click', () => {
+  const t = new Date();
+  currentYear = t.getFullYear();
+  currentMonth = t.getMonth();
+  renderCalendar();
+});
+document.getElementById('cancelBtn').addEventListener('click', closeEditor);
+document.getElementById('saveBtn').addEventListener('click', saveEditor);
+document.getElementById('modal').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) closeEditor();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeEditor();
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && document.getElementById('modal').classList.contains('active')) {
+    e.preventDefault();
+    saveEditor();
+  }
+});
+
+// Init
+loadNotes();
+const t = new Date();
+currentYear = t.getFullYear();
+currentMonth = t.getMonth();
+renderCalendar();
+</script>
+</body>
+</html>
